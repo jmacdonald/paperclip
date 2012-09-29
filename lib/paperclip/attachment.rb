@@ -9,25 +9,26 @@ module Paperclip
   class Attachment
     def self.default_options
       @default_options ||= {
-        :convert_options       => {},
-        :default_style         => :original,
-        :default_url           => "/:attachment/:style/missing.png",
-        :restricted_characters => /[&$+,\/:;=?@<>\[\]\{\}\|\\\^~%# ]/,
-        :hash_data             => ":class/:attachment/:id/:style/:updated_at",
-        :hash_digest           => "SHA1",
-        :interpolator          => Paperclip::Interpolations,
-        :only_process          => [],
-        :path                  => ":rails_root/public:url",
-        :preserve_files        => false,
-        :processors            => [:thumbnail],
-        :source_file_options   => {},
-        :storage               => :filesystem,
-        :styles                => {},
-        :url                   => "/system/:class/:attachment/:id_partition/:style/:filename",
-        :url_generator         => Paperclip::UrlGenerator,
-        :use_default_time_zone => true,
-        :use_timestamp         => true,
-        :whiny                 => Paperclip.options[:whiny] || Paperclip.options[:whiny_thumbnails]
+        :convert_options          => {},
+        :default_style            => :original,
+        :default_url              => "/:attachment/:style/missing.png",
+        :restricted_characters    => /[&$+,\/:;=?@<>\[\]\{\}\|\\\^~%# ]/,
+        :hash_data                => ":class/:attachment/:id/:style/:updated_at",
+        :hash_digest              => "SHA1",
+        :implied_file_attributes  => false,
+        :interpolator             => Paperclip::Interpolations,
+        :only_process             => [],
+        :path                     => ":rails_root/public:url",
+        :preserve_files           => false,
+        :processors               => [:thumbnail],
+        :source_file_options      => {},
+        :storage                  => :filesystem,
+        :styles                   => {},
+        :url                      => "/system/:class/:attachment/:id_partition/:style/:filename",
+        :url_generator            => Paperclip::UrlGenerator,
+        :use_default_time_zone    => true,
+        :use_timestamp            => true,
+        :whiny                    => Paperclip.options[:whiny] || Paperclip.options[:whiny_thumbnails]
       }
     end
 
@@ -58,6 +59,7 @@ module Paperclip
     # +source_file_options+ - flags passed to the +convert+ command that controls how the file is read
     # +processors+ - classes that transform the attachment. Defaults to [:thumbnail]
     # +preserve_files+ - whether to keep files on the filesystem when deleting to clearing the attachment. Defaults to false
+    # +implied_file_attributes+ - makes the <attachment>_file_name/size also available as <attachment>_name/size. Defaults to false
     # +interpolator+ - the object used to interpolate filenames and URLs. Defaults to Paperclip::Interpolations
     # +url_generator+ - the object used to generate URLs, using the interpolator. Defaults to Paperclip::UrlGenerator
     def initialize(name, instance, options = {})
@@ -96,8 +98,10 @@ module Paperclip
 
       @queued_for_write[:original]   = file
       instance_write(:file_name,       cleanup_filename(file.original_filename))
+      instance_write(:name,            cleanup_filename(file.original_filename)) if @options[:implied_file_attributes]
       instance_write(:content_type,    file.content_type.to_s.strip)
       instance_write(:file_size,       file.size)
+      instance_write(:size,            file.size) if @options[:implied_file_attributes]
       instance_write(:fingerprint,     file.fingerprint) if instance_respond_to?(:fingerprint)
       instance_write(:created_at,      Time.now) if has_enabled_but_unset_created_at?
       instance_write(:updated_at,      Time.now)
@@ -108,6 +112,7 @@ module Paperclip
 
       # Reset the file size if the original file was reprocessed.
       instance_write(:file_size,   @queued_for_write[:original].size)
+      instance_write(:size,        @queued_for_write[:original].size) if @options[:implied_file_attributes]
       instance_write(:fingerprint, @queued_for_write[:original].fingerprint) if instance_respond_to?(:fingerprint)
     end
 
@@ -436,8 +441,10 @@ module Paperclip
         path(style) if exists?(style)
       end.compact
       instance_write(:file_name, nil)
+      instance_write(:name, nil) if @options[:implied_file_attributes]
       instance_write(:content_type, nil)
       instance_write(:file_size, nil)
+      instance_write(:size, nil) if @options[:implied_file_attributes]
       instance_write(:fingerprint, nil)
       instance_write(:created_at, nil) if has_enabled_but_unset_created_at?
       instance_write(:updated_at, nil)
